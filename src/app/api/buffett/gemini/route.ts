@@ -1,6 +1,6 @@
 import { db } from "@/drizzle/db";
 import { UserTable } from "@/drizzle/schema";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { auth } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 
@@ -57,21 +57,22 @@ export async function POST(request: Request) {
                 maxOutputTokens: 8192,  // Increased to prevent truncation
                 responseMimeType: "application/json",
                 responseSchema: {
-                    type: "OBJECT" as any,
+                    type: SchemaType.OBJECT,
                     properties: {
                         signal: {
-                            type: "STRING" as any,
+                            type: SchemaType.STRING,
+                            format: "enum",
                             enum: ["bullish", "bearish", "neutral"]
                         },
                         confidence: {
-                            type: "NUMBER" as any,
+                            type: SchemaType.NUMBER,
                         },
                         reasoning: {
-                            type: "STRING" as any
+                            type: SchemaType.STRING
                         }
                     },
                     required: ["signal", "confidence", "reasoning"]
-                } as any
+                }
             },
         });
 
@@ -103,7 +104,7 @@ export async function POST(request: Request) {
     "reasoning": "string"
   }
   
-  CRITICAL: Provide a thorough and detailed reasoning - aim for 1000-1600 characters. Be specific and comprehensive. Cover the 4-5 most important Buffett principles (Circle of Competence, Economic Moat, Financial Strength, Management Quality, Margin of Safety) as they relate to this company. Include specific metrics and examples in Warren Buffett's conversational voice.`;
+  CRITICAL: Provide a thorough and detailed reasoning - aim for 800-1400 characters. Be specific and comprehensive. Cover the 3-4 most important Buffett principles (Circle of Competence, Economic Moat, Financial Strength, Management Quality, Margin of Safety) as they relate to this company. Include specific metrics and examples in Warren Buffett's conversational voice.`;
 
         const result = await model.generateContent([
             { text: systemPrompt },

@@ -48,14 +48,14 @@ export default function Layout({ children }: { children: ReactNode }) {
         };
 
         fetchData();
-    }, []);
+    }, [dispatch]);
 
     const getUserDisplayName = () => {
         if (!user) return "";
         return (
             user.firstName ??
             (user.username ?? "").charAt(0).toLocaleUpperCase() +
-                (user.username ?? "").slice(1)
+            (user.username ?? "").slice(1)
         );
     };
 

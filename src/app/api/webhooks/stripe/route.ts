@@ -1,5 +1,3 @@
-/* eslint-disable camelcase */
-
 import { createTransaction } from "@/server/actions/stripe";
 import { NextResponse } from "next/server";
 import stripe from "stripe";
