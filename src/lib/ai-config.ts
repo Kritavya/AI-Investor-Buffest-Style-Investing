@@ -31,7 +31,7 @@ export const AI_CONFIG = {
      */
     models: {
         claude: 'Claude 3.7 Sonnet',
-        gemini: 'Gemini 2.5 Pro',
+        gemini: 'Gemini 2.5 Flash',
     },
 
     /**
