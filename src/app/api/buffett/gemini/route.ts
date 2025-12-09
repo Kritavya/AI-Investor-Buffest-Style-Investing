@@ -54,8 +54,24 @@ export async function POST(request: Request) {
             model: "gemini-2.5-flash",
             generationConfig: {
                 temperature: 1,
-                maxOutputTokens: 4000,
+                maxOutputTokens: 8192,  // Increased to prevent truncation
                 responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT" as any,
+                    properties: {
+                        signal: {
+                            type: "STRING" as any,
+                            enum: ["bullish", "bearish", "neutral"]
+                        },
+                        confidence: {
+                            type: "NUMBER" as any,
+                        },
+                        reasoning: {
+                            type: "STRING" as any
+                        }
+                    },
+                    required: ["signal", "confidence", "reasoning"]
+                } as any
             },
         });
 
@@ -84,8 +100,10 @@ export async function POST(request: Request) {
   {
     "signal": "bullish" | "bearish" | "neutral",
     "confidence": float between 0 and 100,
-    "reasoning": "string" (max 1500 characters)
-  }`;
+    "reasoning": "string"
+  }
+  
+  CRITICAL: Provide a thorough and detailed reasoning - aim for 1000-1600 characters. Be specific and comprehensive. Cover the 4-5 most important Buffett principles (Circle of Competence, Economic Moat, Financial Strength, Management Quality, Margin of Safety) as they relate to this company. Include specific metrics and examples in Warren Buffett's conversational voice.`;
 
         const result = await model.generateContent([
             { text: systemPrompt },
@@ -93,7 +111,41 @@ export async function POST(request: Request) {
         ]);
 
         const response = result.response;
-        const text = response.text();
+        let text = response.text();
+
+        // Log the raw response for debugging
+        // console.log("Raw Gemini response:", text);
+
+        // Check if response was truncated
+        const finishReason = result.response.candidates?.[0]?.finishReason;
+        if (finishReason && finishReason !== 'STOP') {
+            console.warn('Response may have been truncated. Finish reason:', finishReason);
+        }
+
+        // Clean the response - remove markdown code blocks if present
+        text = text.trim();
+        if (text.startsWith("```json")) {
+            text = text.replace(/^```json\n/, "").replace(/\n```$/, "");
+        } else if (text.startsWith("```")) {
+            text = text.replace(/^```\n/, "").replace(/\n```$/, "");
+        }
+
+        // Check if JSON appears complete (basic validation)
+        const openBraces = (text.match(/{/g) || []).length;
+        const closeBraces = (text.match(/}/g) || []).length;
+        if (openBraces !== closeBraces) {
+            console.error('Incomplete JSON detected - mismatched braces');
+            return new Response(
+                JSON.stringify({
+                    error: "AI response was truncated",
+                    details: "The response exceeded token limits and was cut off. Please try again."
+                }),
+                {
+                    status: 500,
+                    headers: { "Content-Type": "application/json" },
+                }
+            );
+        }
 
         // Parse the JSON response
         let jsonResponse;
@@ -101,9 +153,14 @@ export async function POST(request: Request) {
             jsonResponse = JSON.parse(text);
         } catch (parseError) {
             console.error("Error parsing Gemini response:", parseError);
+            console.error("Cleaned text that failed to parse:", text);
+            console.error("First 1000 chars:", text.substring(0, 1000));
+
             return new Response(
                 JSON.stringify({
                     error: "Failed to parse AI response",
+                    details: parseError instanceof Error ? parseError.message : "Unknown error",
+                    preview: text.substring(0, 200)
                 }),
                 {
                     status: 500,

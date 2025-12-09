@@ -60,6 +60,8 @@ export function useBuffettAiReport(
     const dispatch = useAppDispatch();
 
     const didSpendTokenRef = useRef(false);
+    const isFetchingRef = useRef(false);  // Track if a fetch is in progress
+    const lastTickerRef = useRef<string>("");  // Track last ticker to prevent duplicates
 
     useEffect(() => {
         if (!analysisData) {
@@ -74,6 +76,18 @@ export function useBuffettAiReport(
             return;
         }
 
+        // Skip if already fetching for this ticker
+        if (isFetchingRef.current && lastTickerRef.current === ticker) {
+            console.log("Already fetching for", ticker, "- skipping duplicate request");
+            return;
+        }
+
+        // Reset token tracking when ticker changes
+        if (lastTickerRef.current !== ticker) {
+            didSpendTokenRef.current = false;
+            lastTickerRef.current = ticker;
+        }
+
         setError(undefined);
         setLoading(true);
 
@@ -84,7 +98,10 @@ export function useBuffettAiReport(
             return;
         }
 
+        // Mark as fetching
+        isFetchingRef.current = true;
         setLoading(true);
+
         fetchAiReport(ticker, analysisData)
             .then((report) => {
                 writeToStorage(ticker, report);
@@ -105,8 +122,11 @@ export function useBuffettAiReport(
                 toast.error(msg);
                 console.error(err);
             })
-            .finally(() => setLoading(false));
-    }, [ticker, analysisData]);
+            .finally(() => {
+                setLoading(false);
+                isFetchingRef.current = false;  // Mark as done
+            });
+    }, [ticker, analysisData, dispatch]);
 
     return { data, isLoading, error };
 }
